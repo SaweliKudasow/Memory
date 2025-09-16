@@ -180,3 +180,28 @@ button {
 .card.shake {
   animation: card-shake 0.4s ease;
 }
+
+/* Подсказка внизу */
+.hint {
+  margin: 10px auto 30px;
+  font-size: 20px;
+  line-height: 1.6;
+  color: #333;
+}
+.hint .fraction {
+  transform: translateY(2px);
+}
+/* Подчёркивание только внутри вертикальной дроби */
+.hint .fraction .numerator {
+  border-bottom: 2px solid #000;
+}
+/* Цвета для символов a и b в средней части формулы */
+.hint .num-text {
+  color: #1976d2;
+}
+.hint .den-text {
+  color: #2e7d32;
+}
+.hint .hundred {
+  color: #d32f2f;
+}

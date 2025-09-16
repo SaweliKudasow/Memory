@@ -1,12 +1,15 @@
 const board = document.getElementById("gameBoard");
 const restartBtn = document.getElementById("restart");
-const toggleModeBtn = document.getElementById("toggleMode");
+// Кнопка лёгкого режима удалена
 const toggleOpenModeBtn = document.getElementById("toggleOpenMode");
+const hintEl = document.getElementById("hint");
 
 let flipped = [];
 let selected = []; // для открытого режима
 let lock = false;
-let easyMode = false; // по умолчанию обычный режим
+// Лёгкий режим включается автоматически, когда открытный режим выключен
+// easyMode больше не переключается пользователем
+let easyMode = true;
 let openMode = false; // новый открытый режим
 
 // Длительности анимаций
@@ -43,8 +46,8 @@ function shuffle(array) {
 
 function createFractionHTML(frac, color) {
   const [num, den] = frac.split("/");
-  // В открытом режиме всегда чёрный цвет
-  const displayColor = openMode ? 'black' : (easyMode ? color : 'black');
+  // В открытом режиме всегда чёрный; при выключенном открытом режиме — цветной (лёгкий)
+  const displayColor = openMode ? 'black' : color;
   return `
     <div class="fraction" style="color: ${displayColor}">
       <div class="numerator">${num}</div>
@@ -58,11 +61,20 @@ function createBoard() {
   flipped = [];
   selected = [];
   lock = false;
+  if (hintEl) {
+    if (openMode) {
+      // В открытом режиме по умолчанию показываем общую формулу
+      renderGenericHint();
+    } else {
+      renderGenericHint();
+    }
+  }
 
   shuffle(cards).forEach(cardData => {
     const card = document.createElement("div");
     card.classList.add("card");
     card.dataset.pair = cardData.pair;
+    card.dataset.frac = cardData.frac;
 
     const inner = document.createElement("div");
     inner.classList.add("inner");
@@ -97,8 +109,36 @@ function allPairsFound() {
 
 async function handleWin() {
   lock = true;
-  // Перевернуть все карты лицом вверх, чтобы было видно завершение
   const allCards = Array.from(board.querySelectorAll('.card'));
+  
+  if (openMode) {
+    // Конфетти запускается сразу, создавая длинную паузу как в закрытом режиме
+    await window.runConfetti(3000);
+
+    // После паузы начинаем последовательность закрытия → пересоздания → открытия
+    // 1) Закрыть все карты анимацией
+    allCards.forEach(card => card.classList.remove('flipped'));
+    await new Promise(r => setTimeout(r, FLIP_MS));
+
+    // 2) Пересортировать и отрисовать заново
+    createBoard();
+
+    // 3) Убедиться, что стартуем из закрытого состояния
+    const freshlyBuilt = Array.from(board.querySelectorAll('.card'));
+    freshlyBuilt.forEach(card => card.classList.remove('flipped'));
+
+    // 4) На следующий кадр открыть все карты анимацией
+    await new Promise(requestAnimationFrame);
+    await new Promise(requestAnimationFrame);
+    freshlyBuilt.forEach(card => card.classList.add('flipped'));
+    await new Promise(r => setTimeout(r, FLIP_MS));
+
+    lock = false;
+    return;
+  }
+
+  // Обычный режим (как было)
+  // Перевернуть все карты лицом вверх, чтобы было видно завершение
   allCards.forEach(card => card.classList.add('flipped'));
 
   await window.runConfetti(3000);
@@ -113,39 +153,52 @@ async function handleWin() {
 function flipCard(card) {
   if (lock) return;
 
+  // В закрытом режиме всегда показываем общую формулу (без чисел)
+  if (hintEl && card.dataset.frac && !openMode) {
+    renderGenericHint();
+  }
+
   if (openMode) {
-    // Открытый режим: работаем с выбранными картами
+    // Открытый режим: работаем с выбранными картами и обновляем подсказку
     if (card.classList.contains("matched")) return;
 
     if (card.classList.contains("selected")) {
       // Деактивация: убираем карту из выбранных
       card.classList.remove("selected");
       selected = selected.filter(c => c !== card);
+      // Если больше нет выбранных — показываем общую формулу
+      if (selected.length === 0) {
+        renderGenericHint();
+      } else {
+        // Иначе показываем формулу по последней выбранной карте
+        const last = selected[selected.length - 1];
+        if (last && last.dataset.frac) updateHint(last.dataset.frac);
+      }
       return;
     }
 
     card.classList.add("selected");
     selected.push(card);
+    // Показать цифры для выбранной карты
+    if (card.dataset.frac) updateHint(card.dataset.frac);
 
     if (selected.length === 2) {
       const [c1, c2] = selected;
       lock = true;
-      
-      // Небольшая задержка, чтобы синий бордер второй карты был виден
       setTimeout(() => {
         if (c1.dataset.pair === c2.dataset.pair) {
-          // Совпадение: зелёный бордер
           c1.classList.remove("selected");
           c2.classList.remove("selected");
           c1.classList.add("matched");
           c2.classList.add("matched");
           selected = [];
+          // После совпадения вернём общую формулу
+          renderGenericHint();
           lock = false;
           if (allPairsFound()) {
             handleWin();
           }
         } else {
-          // Несовпадение: красный бордер и тряска
           c1.classList.remove("selected");
           c2.classList.remove("selected");
           c1.classList.add("mismatch");
@@ -158,10 +211,12 @@ function flipCard(card) {
             c1.classList.remove("mismatch");
             c2.classList.remove("mismatch");
             selected = [];
+            // После рассинхрона тоже вернём общую формулу
+            renderGenericHint();
             lock = false;
           }, SHAKE_MS);
         }
-      }, 250); // 250мс задержка для видимости синего бордера
+      }, 250);
     }
   } else {
     // Обычный режим
@@ -173,7 +228,6 @@ function flipCard(card) {
     if (flipped.length === 2) {
       const [c1, c2] = flipped;
       if (c1.dataset.pair === c2.dataset.pair) {
-        // Совпадение: бордер появляется после окончания переворота
         setTimeout(() => {
           c1.classList.add("matched");
           c2.classList.add("matched");
@@ -184,21 +238,16 @@ function flipCard(card) {
         flipped = [];
       } else {
         lock = true;
-        // Ждём завершения переворота второй карты
         setTimeout(() => {
-          // Красный бордер во время ошибки
           c1.classList.add("mismatch");
           c2.classList.add("mismatch");
-          // Тряска
           c1.classList.add("shake");
           c2.classList.add("shake");
           setTimeout(() => {
             c1.classList.remove("shake");
             c2.classList.remove("shake");
-            // Возвращаем серый бордер
             c1.classList.remove("mismatch");
             c2.classList.remove("mismatch");
-            // Переворачиваем назад
             c1.classList.remove("flipped");
             c2.classList.remove("flipped");
             flipped = [];
@@ -208,6 +257,43 @@ function flipCard(card) {
       }
     }
   }
+}
+
+function renderGenericHint() {
+  if (!hintEl) return;
+  hintEl.innerHTML = `
+    <span style="display:inline-flex;align-items:center;gap:8px;">
+      <span class="fraction">
+        <span class="numerator">a</span>
+        <span class="denominator">b</span>
+      </span>
+      = a ÷ b * 100 = ... %
+    </span>
+  `;
+}
+
+function updateHint(frac) {
+  const [aStr, bStr] = frac.split("/");
+  const a = Number(aStr);
+  const b = Number(bStr);
+  if (!Number.isFinite(a) || !Number.isFinite(b) || b === 0) {
+    hintEl.innerHTML = "";
+    return;
+  }
+  const percent = (a / b) * 100;
+  const percentStr = Number.isInteger(percent)
+    ? String(percent)
+    : percent.toFixed(2).replace(/\.00$/, '').replace(/(\.\d)0$/, '$1');
+
+  hintEl.innerHTML = `
+    <span style="display:inline-flex;align-items:center;gap:8px;">
+      <span class="fraction">
+        <span class="numerator">${a}</span>
+        <span class="denominator">${b}</span>
+      </span>
+      = ${a} ÷ ${b} * 100 = ${percentStr} %
+    </span>
+  `;
 }
 
 async function closeOpenCardsThen(cb) {
@@ -235,25 +321,141 @@ async function closeOpenCardsThen(cb) {
 }
 
 restartBtn.addEventListener("click", () => {
-  closeOpenCardsThen(() => {
-    createBoard();
-  });
+  if (openMode) {
+    // В открытом режиме: закрыть -> пересортировать -> открыть
+    if (lock) return;
+    lock = true;
+    const all = Array.from(board.querySelectorAll('.card'));
+    all.forEach(card => card.classList.remove('flipped'));
+    setTimeout(() => {
+      createBoard();
+      const rebuilt = Array.from(board.querySelectorAll('.card'));
+      rebuilt.forEach(card => card.classList.remove('flipped'));
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          rebuilt.forEach(card => card.classList.add('flipped'));
+          setTimeout(() => { lock = false; }, FLIP_MS);
+        });
+      });
+    }, FLIP_MS);
+  } else {
+    // В закрытом режиме: поведение как раньше
+    closeOpenCardsThen(() => {
+      createBoard();
+    });
+  }
 });
 
-toggleModeBtn.addEventListener("click", () => {
-  closeOpenCardsThen(() => {
-    easyMode = !easyMode;
-    toggleModeBtn.textContent = easyMode ? "Выключить лёгкий режим" : "Включить лёгкий режим";
-    createBoard();
-  });
-});
+// Обработчик лёгкого режима удалён — он управляется автоматически
 
 toggleOpenModeBtn.addEventListener("click", () => {
   closeOpenCardsThen(() => {
     openMode = !openMode;
-    toggleOpenModeBtn.textContent = openMode ? "Выключить открытый режим" : "Включить открытый режим";
-    createBoard();
+    toggleOpenModeBtn.textContent = openMode ? "Open Modus ausschalten" : "Open Modus";
+    // При включении открытого режима лёгкий режим считается выключенным (чёрные дроби)
+    // При выключении открытого режима – автоматически лёгкий (цветной)
+    easyMode = !openMode;
+    animateFlipAll(openMode);
   });
 });
 
 createBoard();
+
+function animateFlipAll(toOpenMode) {
+  const allCards = Array.from(board.querySelectorAll('.card'));
+  if (allCards.length === 0) {
+    // если поле пустое, просто пересоздаём
+    if (toOpenMode) {
+      renderGenericHint();
+    } else {
+      renderGenericHint();
+    }
+    createBoard();
+    return;
+  }
+  lock = true;
+  
+  if (toOpenMode) {
+    // При включении открытого режима: сразу обновляем содержимое и открываем
+    board.innerHTML = "";
+    flipped = [];
+    selected = [];
+    
+    shuffle(cards).forEach(cardData => {
+      const card = document.createElement("div");
+      card.classList.add("card");
+      card.dataset.pair = cardData.pair;
+      card.dataset.frac = cardData.frac;
+
+      const inner = document.createElement("div");
+      inner.classList.add("inner");
+
+      const front = document.createElement("div");
+      front.classList.add("front");
+      front.innerHTML = createFractionHTML(cardData.frac, cardData.color);
+
+      const back = document.createElement("div");
+      back.classList.add("back");
+      back.textContent = "?";
+
+      inner.appendChild(front);
+      inner.appendChild(back);
+      card.appendChild(inner);
+
+      card.addEventListener("click", () => flipCard(card));
+      board.appendChild(card);
+    });
+
+    // В открытом режиме по умолчанию показываем общую формулу
+    renderGenericHint();
+
+    // Открываем анимированно
+    const newCards = Array.from(board.querySelectorAll('.card'));
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        newCards.forEach(card => card.classList.add('flipped'));
+        setTimeout(() => {
+          lock = false;
+        }, FLIP_MS);
+      });
+    });
+  } else {
+    // При выключении открытого режима: сначала переворачиваем назад, потом обновляем содержимое
+    allCards.forEach(card => card.classList.remove('flipped'));
+    
+    setTimeout(() => {
+      // После анимации переворота обновляем содержимое
+      board.innerHTML = "";
+      flipped = [];
+      selected = [];
+      
+      shuffle(cards).forEach(cardData => {
+        const card = document.createElement("div");
+        card.classList.add("card");
+        card.dataset.pair = cardData.pair;
+        card.dataset.frac = cardData.frac;
+
+        const inner = document.createElement("div");
+        inner.classList.add("inner");
+
+        const front = document.createElement("div");
+        front.classList.add("front");
+        front.innerHTML = createFractionHTML(cardData.frac, cardData.color);
+
+        const back = document.createElement("div");
+        back.classList.add("back");
+        back.textContent = "?";
+
+        inner.appendChild(front);
+        inner.appendChild(back);
+        card.appendChild(inner);
+
+        card.addEventListener("click", () => flipCard(card));
+        board.appendChild(card);
+      });
+
+      renderGenericHint();
+      lock = false;
+    }, FLIP_MS);
+  }
+}
