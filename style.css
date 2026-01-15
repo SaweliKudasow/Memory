@@ -1,0 +1,237 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Poppins', sans-serif;
+    font-size: 18px;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+body {
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+}
+
+/* Memory */
+
+:root {
+    --card-color: #fff;
+}
+
+.board {
+    height: 490px;
+    width: 400px;
+    padding: 25px;
+    background: #f4f4f4;
+    border-radius: 10px;
+    border: 3px solid rgb(231, 231, 231);
+    display: flex;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+    flex-direction: column;
+}
+
+.cards, .card, .view {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.cards {
+    height: 100%;
+    width: 100%;
+    flex-wrap: wrap;
+    justify-content: space-between;
+}
+
+.cards .card {
+    cursor: pointer;
+    position: relative;
+    perspective: 800px;
+    transform-style: preserve-3d;
+    height: calc(100% / 4 - 10px);
+    width: calc(100% / 4 - 10px);
+}
+
+.card.shake {
+    animation: shake 0.35s ease-in-out;
+}
+
+@keyframes shake {
+    0%, 100% {
+        transform: translateX(0);
+    }
+    20% {
+        transform: translateX(-13px);
+    }
+    40% {
+        transform: translateX(13px);
+    }
+    60% {
+        transform: translateX(-8px);
+    }
+    80% {
+        transform: translateX(8px);
+    }
+}
+
+.cards .card .view {
+    width: 100%;
+    height: 100%;
+    user-select: none;
+    pointer-events: none;
+    position: absolute;
+    background: var(--card-color);
+    border-radius: 7px;
+    backface-visibility: hidden;
+    transition: transform 0.25s linear;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+}
+
+/* Borders für openMode */
+.card.selected .back-view { border: 3px solid #2196F3; }
+.card.mismatch .back-view { border: 3px solid #E53935; }
+.card.matched .back-view  { border: 3px solid #43A047; }
+
+.card.selected .back-view,
+.card.mismatch .back-view,
+.card.matched .back-view {
+    border-radius: 7px;
+}
+
+.card .front-view span {
+    font-size: 40px;
+}
+
+.card .back-view {
+    transform: rotateY(-180deg);
+}
+
+.card .back-view img {
+    width: 80%;
+    height: 80%;
+    object-fit: contain;
+    display: block;
+}
+
+/* In offenem Modus alles auf Karten schwarz färben */
+.open-mode .card .back-view img {
+    filter: brightness(0) saturate(100%);
+}
+
+.open-mode .front-view .material-icons {
+    color: #000 !important;
+}
+
+
+.card.flip .front-view {
+    transform: rotateY(180deg);
+}
+
+.card.flip .back-view {
+    transform: rotateY(0);
+}
+
+.hidden img {
+    visibility: hidden;
+}
+
+/* ------------------- */ 
+
+.dock {
+    width: 400px;
+    height: 90px;
+    background-color: #fff;
+    border-radius: 10px;
+    padding: 14px 16px;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    row-gap: 8px;
+    column-gap: 12px;
+    width: 100%;
+    margin-top: auto;
+    margin-top: 20px;
+    align-items: center;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+    border: 3px solid rgb(234, 234, 234);
+}
+
+.dock > * {
+    flex: 0 0 calc(50% - 12px);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+
+.retry, .switch {
+    border-radius: 5px;
+    border: 2px solid black;
+    padding: 2px 8px;
+    cursor: pointer;
+    background: #71f182;
+    color: black;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+    transition: transform 0.2s ease;
+    white-space: nowrap;
+}
+
+@media (hover: hover) and (pointer: fine) {
+    .retry:hover, .switch:hover {
+        transform: scale(1.05);
+    }
+    
+    .retry:active, .switch:active {
+        transition: transform 0.1s ease;
+        transform: scale(1.0);
+    }
+}
+
+@media (orientation: portrait) and (max-width: 1024px) {
+    body {
+        background-image: none !important;
+        background-color: white;
+    }
+}
+
+@media (hover: none) and (pointer: coarse) {
+    .retry, .switch {
+        transition: transform 0.12s ease;
+    }
+
+    .retry:active, .switch:active {
+        transform: scale(0.95);
+    }
+
+    .retry.pressed, .switch.pressed {
+        transform: scale(0.95);
+    }
+}
+
+@media (max-width: 360px) {
+    body {
+        overflow: hidden;
+    }
+
+    .board {
+        height: 390px;
+        width: 300px;
+        font-size: 4px;
+    }
+
+    * {
+        font-size: 14px;
+    }
+
+    .card .front-view span {
+        font-size: 30px;
+    }
+}
