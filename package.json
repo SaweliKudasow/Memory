@@ -1,0 +1,21 @@
+{
+  "name": "memory",
+  "version": "1.0.0",
+  "description": "",
+  "homepage": "https://github.com/JohannesKudasow/Memory#readme",
+  "bugs": {
+    "url": "https://github.com/JohannesKudasow/Memory/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/JohannesKudasow/Memory.git"
+  },
+  "license": "ISC",
+  "author": "Saweli Kudasow",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  }
+}
